@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
     // const { target = 'reddit' } = body;
 
-    if (!['reddit', 'amazon'].includes(target)) {
+    if (!['reddit', 'amazon', 'linkedin'].includes(target)) {
       console.log('[API] Invalid target:', target); // NEW
       return NextResponse.json({ error: 'Invalid target' }, { status: 400 });
     }

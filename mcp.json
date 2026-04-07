@@ -1,0 +1,17 @@
+{
+    "mcpServers": {
+        "brightdata": {
+            "command": "C:\\Users\\USER\\.nvm\\versions\\node\\v22.22.2\\bin\\node.exe",
+            "args": [
+                "--experimental-specifier-resolution=node",
+                "C:/Users/user/downloads/bright-data/node_modules/@brightdata/mcp/server.js"
+            ],
+            "env": {
+                "API_TOKEN": "API_TOKEN_PLACEHOLDER"
+            },
+            "autoApprove": [
+                "search_engine"
+            ]
+        }
+    }
+}

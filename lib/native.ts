@@ -42,6 +42,29 @@ const TARGETS: Record<string, { url: string; label: string; parser: (html: strin
       return items;
     },
   },
+  linkedin: {
+    url: 'https://www.linkedin.com/jobs/search/?keywords=software%20engineer',
+    label: 'LinkedIn Jobs',
+    parser: (html: string) => {
+      const items: any[] = [];
+
+      const regex = /<a[^>]*class="[^"]*base-card__full-link[^"]*"[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/g;
+
+      let match;
+      let i = 0;
+
+      while ((match = regex.exec(html)) !== null && i < 10) {
+        items.push({
+          title: match[2].trim(),
+          url: match[1],
+          source: 'linkedin',
+        });
+        i++;
+      }
+
+      return items;
+    },
+  },
 };
 
 export async function nativeFetch(target: string, query?: string, mode?: string): Promise<FetchResult> {
@@ -52,7 +75,34 @@ export async function nativeFetch(target: string, query?: string, mode?: string)
     console.log('[nativeFetch] Unknown target');
     return { status: 'error', data: [], error: 'Unknown target', duration_ms: 0, items_count: 0 };
   }
+  // NEW: Dynamic URL override using query + mode
+  let dynamicUrl = t.url;
 
+  console.log('[nativeFetch] Incoming query:', query); // NEW
+  console.log('[nativeFetch] Mode:', mode); // NEW
+
+  if (query) {
+    if (target === 'reddit') {
+      // HTML scrape always returns a JS shell (~8KB) with no parseable content.
+      // The JSON API works reliably without auth for public search.
+      dynamicUrl = query
+        ? `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&limit=10`
+        : `https://www.reddit.com/r/technology/top.json?limit=10`;
+      console.log('[nativeFetch] Reddit: always using JSON API endpoint');
+    }
+
+    if (target === 'amazon') {
+      dynamicUrl = `https://www.amazon.com/s?k=${encodeURIComponent(query)}`; // NEW
+      console.log('[nativeFetch] Using Amazon search URL'); // NEW
+    }
+
+    if (target === 'linkedin') {
+      dynamicUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(query)}`; // NEW
+      console.log('[nativeFetch] Using Amazon search URL'); // NEW
+    }
+  }
+
+  console.log('[nativeFetch] Final URL:', dynamicUrl); // NEW
   console.log('[nativeFetch] Target config:', t.label, t.url);
 
   const start = Date.now();
@@ -65,7 +115,7 @@ export async function nativeFetch(target: string, query?: string, mode?: string)
 
     console.log('[nativeFetch] Sending request...');
 
-    const response = await fetch(t.url, {
+    const response = await fetch(dynamicUrl, {
       signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; demo-bot/1.0)',

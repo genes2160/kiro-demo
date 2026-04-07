@@ -352,7 +352,7 @@ function HistoryTable({ history }: { history: HistoryRow[] }) {
 }
 
 export default function Page() {
-  const [target, setTarget] = useState<'reddit' | 'amazon'>('reddit');
+  const [target, setTarget] = useState<'reddit' | 'amazon' | 'linkedin'>('reddit');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -368,7 +368,9 @@ export default function Page() {
       const data = await res.json();
       setHistory(data.recent || []);
       setAggregate(data.aggregate || null);
-    } catch {}
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
   };
 
   useEffect(() => { fetchHistory(); }, []);
@@ -497,7 +499,7 @@ export default function Page() {
           <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>Target source:</div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            {(['reddit', 'amazon'] as const).map(t => (
+            {(['reddit', 'amazon', 'linkedin'] as const).map(t => (
               <button
                 key={t}
                 className="target-btn"
@@ -509,7 +511,7 @@ export default function Page() {
                   borderColor: target === t ? 'var(--border-bright)' : 'var(--border)',
                 }}
               >
-                {t === 'reddit' ? '🔴 Reddit' : '📦 Amazon'}
+                {t === 'reddit' ? '🔴 Reddit' : t === 'amazon' ? '📦 Amazon' : '💼 LinkedIn'}
               </button>
             ))}
           </div>
@@ -530,21 +532,16 @@ export default function Page() {
               fontSize: 13,
             }}
           />
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as any)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: 'var(--bg-3)',
-              color: 'var(--text)',
-              fontSize: 13,
-            }}
-          >
-            <option value="scrape">Scrape (HTML)</option>
-            <option value="api">API Mode</option>
-          </select>
+          {target === 'reddit' && (
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as any)}
+              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-3)', color: 'var(--text)', fontSize: 13 }}
+            >
+              <option value="api">JSON API</option>
+              <option value="scrape">HTML Scrape</option>
+            </select>
+          )}
           <button
             className="run-btn"
             onClick={runQuery}
@@ -598,7 +595,21 @@ export default function Page() {
             <button
               key={tab}
               className="tab-btn"
-              onClick={() => setActiveTab(tab)}
+              onClick={async() => {
+                  setActiveTab(tab)
+                if (tab === 'history') {
+                    setLoading(true);
+                    // Refetch history when switching to history tab to ensure data is fresh
+                    try {
+                      await fetchHistory();
+                    } catch (error) {
+                      console.error('Failed to fetch history:', error);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
+                }
+              }
               style={{
                 padding: '10px 20px', fontSize: 13, fontWeight: 600,
                 color: activeTab === tab ? 'var(--text)' : 'var(--text-3)',
