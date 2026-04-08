@@ -13,6 +13,12 @@ cp .env.example .env
 docker build -t kiro-demo .
 docker run -p 3000:3000 --env-file .env kiro-demo
 
+
+docker build --no-cache -t kiro-demo .
+docker run -p 3000:3000 --env-file .env --name kiro-demo-app kiro-demo
+docker stop kiro-demo-app
+docker rm kiro-demo-app
+
 # 3. Open http://localhost:3000
 ```
 
@@ -48,3 +54,8 @@ docker run -p 3000:3000 --env-file .env -v $(pwd)/data:/app/data kiro-demo
 npm install
 npm run dev
 ```
+
+# SEARCH QUERIES
+wireless headphones
+OpenAI GPT-5 opinions
+software engineers
