@@ -16,6 +16,7 @@ docker run -p 3000:3000 --env-file .env kiro-demo
 
 docker build --no-cache -t kiro-demo .
 docker run -p 3000:3000 --env-file .env --name kiro-demo-app kiro-demo
+docker run -p 3000:3000 --env-file .env -v /{path}/data:/app/data --name kiro-demo-app kiro-demo
 docker stop kiro-demo-app
 docker rm kiro-demo-app
 

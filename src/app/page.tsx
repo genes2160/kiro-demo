@@ -352,6 +352,31 @@ function HistoryTable({ history }: { history: HistoryRow[] }) {
 }
 
 export default function Page() {
+  const DEMO_QUERIES: Record<'reddit' | 'amazon' | 'linkedin', string[]> = {
+    reddit: [
+      'openAI issues',
+      'OpenAI GPT-5 opinions',
+      'ChatGPT problems',
+      'OpenAI outage reactions',
+      'OpenAI controversies',
+    ],
+    linkedin: [
+      'backend engineer',
+      'senior backend engineer',
+      'python backend engineer',
+      'software engineer backend',
+      'backend developer remote',
+    ],
+    amazon: [
+      'wireless',
+      'wireless headphones',
+      'wireless earbuds',
+      'wireless mouse',
+      'wireless charger',
+    ],
+  };
+
+  const [isTypingDemo, setIsTypingDemo] = useState(false);
   const [target, setTarget] = useState<'reddit' | 'amazon' | 'linkedin'>('reddit');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -364,15 +389,48 @@ export default function Page() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch('/api/query/native');
+      const res = await fetch('/api/query/native', { cache: 'no-store' });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('History endpoint failed:', res.status, text);
+        setHistory([]);
+        setAggregate(null);
+        return;
+      }
+
       const data = await res.json();
-      setHistory(data.recent || []);
-      setAggregate(data.aggregate || null);
+      console.log('[history] response:', data);
+
+      setHistory(Array.isArray(data?.recent) ? data.recent : []);
+      setAggregate(data?.aggregate ?? null);
     } catch (err) {
       console.error('Failed to fetch history:', err);
+      setHistory([]);
+      setAggregate(null);
     }
   };
+  function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
+  async function typeIntoQuery(text: string) {
+    if (loading || isTypingDemo) return;
+
+    setIsTypingDemo(true);
+    setQuery('');
+
+    for (let i = 0; i < text.length; i++) {
+      setQuery(text.slice(0, i + 1));
+      await sleep(35);
+    }
+
+    setIsTypingDemo(false);
+  }
+
+  async function insertDemoQuery(text: string) {
+    await typeIntoQuery(text);
+  }
   useEffect(() => { fetchHistory(); }, []);
 
   const runQuery = async () => {
@@ -401,6 +459,12 @@ export default function Page() {
       setLoading(false);
     }
   };
+
+  function pickRandomDemoQuery() {
+    const pool = DEMO_QUERIES[target];
+    const choice = pool[Math.floor(Math.random() * pool.length)];
+    void insertDemoQuery(choice);
+  }
 
   const brightdataRate = aggregate && aggregate.total > 0
     ? Math.round((aggregate.brightdata_success / aggregate.total) * 100)
@@ -483,7 +547,7 @@ export default function Page() {
             <span style={{ color: '#4f7cff' }}>Bright Data delivers.</span>
           </h1>
           <p style={{ color: 'var(--text-2)', fontSize: 15, maxWidth: 560 }}>
-            Watch real-time as the same data request succeeds or gets blocked — side by side, zero ambiguity.
+            Compare raw native scraping against production-grade retrieval on Reddit, Amazon, and LinkedIn — side by side.
           </p>
         </div>
 
@@ -517,48 +581,84 @@ export default function Page() {
           </div>
 
           <div style={{ flex: 1 }} />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter query (e.g. wireless headphones, ai, software engineer)"
-            style={{
-              flex: 1,
-              minWidth: 240,
-              padding: '10px 14px',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: 'var(--bg-1)',
-              color: 'var(--text)',
-              fontSize: 13,
-            }}
-          />
-          {target === 'reddit' && (
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as any)}
-              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-3)', color: 'var(--text)', fontSize: 13 }}
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Enter query (e.g. wireless headphones, ai, software engineer)"
+              style={{
+                flex: 1,
+                minWidth: 240,
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-1)',
+                color: 'var(--text)',
+                fontSize: 13,
+              }}
+            />
+            {target === 'reddit' && (
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as any)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-3)', color: 'var(--text)', fontSize: 13 }}
+              >
+                <option value="api">JSON API</option>
+                <option value="scrape">HTML Scrape</option>
+              </select>
+            )}
+            <button
+              className="run-btn"
+              onClick={runQuery}
+              disabled={loading}
+              style={{
+                padding: '10px 28px', borderRadius: 10,
+                background: loading ? '#2a3040' : 'linear-gradient(135deg, #4f7cff, #6366f1)',
+                color: 'white', fontSize: 14, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: loading ? 'none' : '0 4px 20px rgba(79,124,255,0.3)',
+              }}
             >
-              <option value="api">JSON API</option>
-              <option value="scrape">HTML Scrape</option>
-            </select>
-          )}
-          <button
-            className="run-btn"
-            onClick={runQuery}
-            disabled={loading}
-            style={{
-              padding: '10px 28px', borderRadius: 10,
-              background: loading ? '#2a3040' : 'linear-gradient(135deg, #4f7cff, #6366f1)',
-              color: 'white', fontSize: 14, fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: loading ? 'none' : '0 4px 20px rgba(79,124,255,0.3)',
-            }}
-          >
-            {loading && <Spinner />}
-            {loading ? 'Running...' : '▶ Run Comparison'}
-          </button>
-        </div>
-
+              {loading && <Spinner />}
+              {loading ? 'Running...' : '▶ Run Comparison'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, marginBottom: 10, width: '100%' }}>
+            {DEMO_QUERIES[target].map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => insertDemoQuery(q)}
+                disabled={loading || isTypingDemo}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 999,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-3)',
+                  color: 'var(--text-2)',
+                  fontSize: 12,
+                  cursor: loading || isTypingDemo ? 'not-allowed' : 'pointer',
+                  opacity: loading || isTypingDemo ? 0.6 : 1,
+                }}
+              >
+                {q}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={pickRandomDemoQuery}
+              disabled={loading || isTypingDemo}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-3)',
+                color: 'var(--text)',
+                fontSize: 12,
+              }}
+            >
+              ✍️ Demo Query
+            </button>
+          </div>
         {/* Aggregate stats */}
         {aggregate && aggregate.total > 0 && (
           <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>

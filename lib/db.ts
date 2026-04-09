@@ -6,15 +6,21 @@ let db: any = null;
 function getDb() {
   if (db) return db;
 
-  // Ensure data directory exists
   const dataDir = path.join(process.cwd(), 'data');
+  const dbFile = path.join(dataDir, 'queries.db');
+
+  console.log('[db] cwd:', process.cwd());
+  console.log('[db] dataDir:', dataDir);
+  console.log('[db] dbFile:', dbFile);
+
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
+    console.log('[db] created data dir');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const Database = require('better-sqlite3');
-  db = new Database(path.join(dataDir, 'queries.db'));
+  db = new Database(dbFile);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS query_results (
@@ -48,6 +54,7 @@ function getDb() {
     );
   `);
 
+  console.log('[db] schema ensured');
   return db;
 }
 
@@ -64,6 +71,7 @@ export function saveQueryResult(result: {
   brightdata_duration_ms: number;
 }) {
   const database = getDb();
+
   const stmt = database.prepare(`
     INSERT INTO query_results 
     (query_type, target, native_status, native_data, native_error, native_duration_ms, native_items_count,
@@ -71,7 +79,7 @@ export function saveQueryResult(result: {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(
+  const info = stmt.run(
     result.query_type,
     result.target,
     result.native_status,
@@ -86,8 +94,13 @@ export function saveQueryResult(result: {
     result.brightdata_data.length
   );
 
-  // Update stats
+  console.log('[db] insert info:', info);
+  console.log('[db] inserted target:', result.target);
+  console.log('[db] inserted native items:', result.native_data.length);
+  console.log('[db] inserted brightdata items:', result.brightdata_data.length);
+
   updateStats(database, result.target, result.native_status, result.brightdata_status);
+  console.log('[db] stats updated');
 }
 
 function updateStats(database: any, target: string, nativeStatus: string, brightdataStatus: string) {
@@ -154,16 +167,17 @@ export function getAggregate() {
   const totals = database.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(native_items_count) as native_total_items,
-      SUM(brightdata_items_count) as brightdata_total_items,
-      SUM(CASE WHEN native_status = 'success' THEN 1 ELSE 0 END) as native_success,
-      SUM(CASE WHEN native_status = 'blocked' THEN 1 ELSE 0 END) as native_blocked,
-      SUM(CASE WHEN brightdata_status = 'success' THEN 1 ELSE 0 END) as brightdata_success,
-      AVG(native_duration_ms) as avg_native_ms,
-      AVG(brightdata_duration_ms) as avg_brightdata_ms
+      COALESCE(SUM(native_items_count), 0) as native_total_items,
+      COALESCE(SUM(brightdata_items_count), 0) as brightdata_total_items,
+      COALESCE(SUM(CASE WHEN native_status = 'success' THEN 1 ELSE 0 END), 0) as native_success,
+      COALESCE(SUM(CASE WHEN native_status = 'blocked' THEN 1 ELSE 0 END), 0) as native_blocked,
+      COALESCE(SUM(CASE WHEN brightdata_status = 'success' THEN 1 ELSE 0 END), 0) as brightdata_success,
+      COALESCE(AVG(native_duration_ms), 0) as avg_native_ms,
+      COALESCE(AVG(brightdata_duration_ms), 0) as avg_brightdata_ms
     FROM query_results
   `).get();
 
+  console.log('[db] aggregate:', totals);
   return totals;
 }
 

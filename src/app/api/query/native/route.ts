@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getRecentQueries, getAggregate, getStats } from '../../../../../lib/db'
+import { getRecentQueries, getAggregate, getStats } from '../../../../../lib/db';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -11,6 +14,9 @@ export async function GET() {
 
     return NextResponse.json({ recent, aggregate, stats });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message, recent: [], aggregate: null, stats: [] }, { status: 200 });
+    return NextResponse.json(
+      { error: err.message, recent: [], aggregate: null, stats: [] },
+      { status: 200 }
+    );
   }
 }
