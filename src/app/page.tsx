@@ -471,7 +471,14 @@ export default function Page() {
     : null;
 
   return (
-    <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '570px minmax(0, 1fr)',
+        gap: 20,
+        alignItems: 'start',
+      }}
+    >
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -487,89 +494,60 @@ export default function Page() {
         .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
       `}</style>
 
-      {/* Header */}
-      <header style={{
-        borderBottom: '1px solid var(--border)',
-        background: 'rgba(7,8,10,0.9)',
-        backdropFilter: 'blur(20px)',
-        position: 'sticky', top: 0, zIndex: 100,
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: 'linear-gradient(135deg, #4f7cff, #7c3aed)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 700,
-              }}>⚡</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>Kiro Demo</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.04em' }}>NATIVE HTTP vs BRIGHT DATA</div>
-              </div>
-            </div>
-
-            {/* Live aggregate pills */}
-            {aggregate && aggregate.total > 0 && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-3)', marginRight: 4 }}>{aggregate.total} runs</span>
-                <span style={{
-                  background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600,
-                }}>
-                  Native {aggregate.total > 0 ? Math.round((aggregate.native_success / aggregate.total) * 100) : 0}%
-                </span>
-                <span style={{
-                  background: 'rgba(79,124,255,0.1)', color: '#4f7cff',
-                  border: '1px solid rgba(79,124,255,0.25)',
-                  borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 600,
-                }}>
-                  Bright Data {brightdataRate}%
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
-
+      {/* LEFT */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 84,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+        }}
+      >
         {/* Hero */}
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 4 }}>
           <h1 style={{
-            fontSize: 'clamp(24px, 4vw, 38px)',
-            fontWeight: 700, letterSpacing: '-0.03em',
-            lineHeight: 1.15, marginBottom: 10,
+            fontSize: 'clamp(21px, 2vw, 28px)',
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
+            lineHeight: 1.15,
+            marginBottom: 10,
+            padding: "20px"
           }}>
             Same request.{' '}
             <span style={{ color: '#ef4444' }}>Native fails.</span>{' '}
             <span style={{ color: '#4f7cff' }}>Bright Data delivers.</span>
           </h1>
-          <p style={{ color: 'var(--text-2)', fontSize: 15, maxWidth: 560 }}>
+          <p style={{ color: 'var(--text-2)', fontSize: 15 }}>
             Compare raw native scraping against production-grade retrieval on Reddit, Amazon, and LinkedIn — side by side.
           </p>
         </div>
 
-        {/* Control bar */}
+        {/* Form card */}
         <div style={{
           background: 'var(--bg-2)',
           border: '1px solid var(--border)',
           borderRadius: 16,
           padding: '20px 24px',
-          marginBottom: 24,
-          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
         }}>
-          <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>Target source:</div>
+          <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+            Target source
+          </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {(['reddit', 'amazon', 'linkedin'] as const).map(t => (
               <button
                 key={t}
                 className="target-btn"
                 onClick={() => setTarget(t)}
                 style={{
-                  padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 600,
                   color: target === t ? 'var(--text)' : 'var(--text-2)',
                   background: target === t ? 'var(--bg-4)' : 'transparent',
                   borderColor: target === t ? 'var(--border-bright)' : 'var(--border)',
@@ -580,49 +558,62 @@ export default function Page() {
             ))}
           </div>
 
-          <div style={{ flex: 1 }} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Enter query (e.g. wireless headphones, ai, software engineer)"
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter query (e.g. wireless headphones, ai, software engineer)"
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-1)',
+              color: 'var(--text)',
+              fontSize: 13,
+            }}
+          />
+
+          {target === 'reddit' && (
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as any)}
               style={{
-                flex: 1,
-                minWidth: 240,
-                padding: '10px 14px',
+                padding: '8px 12px',
                 borderRadius: 8,
                 border: '1px solid var(--border)',
-                background: 'var(--bg-1)',
+                background: 'var(--bg-3)',
                 color: 'var(--text)',
                 fontSize: 13,
               }}
-            />
-            {target === 'reddit' && (
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as any)}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-3)', color: 'var(--text)', fontSize: 13 }}
-              >
-                <option value="api">JSON API</option>
-                <option value="scrape">HTML Scrape</option>
-              </select>
-            )}
-            <button
-              className="run-btn"
-              onClick={runQuery}
-              disabled={loading}
-              style={{
-                padding: '10px 28px', borderRadius: 10,
-                background: loading ? '#2a3040' : 'linear-gradient(135deg, #4f7cff, #6366f1)',
-                color: 'white', fontSize: 14, fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 8,
-                boxShadow: loading ? 'none' : '0 4px 20px rgba(79,124,255,0.3)',
-              }}
             >
-              {loading && <Spinner />}
-              {loading ? 'Running...' : '▶ Run Comparison'}
-            </button>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, marginBottom: 10, width: '100%' }}>
+              <option value="api">SERP</option>
+              <option value="scrape">HTML</option>
+            </select>
+          )}
+
+          <button
+            className="run-btn"
+            onClick={runQuery}
+            disabled={loading}
+            style={{
+              padding: '10px 28px',
+              borderRadius: 10,
+              background: loading ? '#2a3040' : 'linear-gradient(135deg, #4f7cff, #6366f1)',
+              color: 'white',
+              fontSize: 14,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              boxShadow: loading ? 'none' : '0 4px 20px rgba(79,124,255,0.3)',
+            }}
+          >
+            {loading && <Spinner />}
+            {loading ? 'Running...' : '▶ Run Comparison'}
+          </button>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {DEMO_QUERIES[target].map((q) => (
               <button
                 key={q}
@@ -643,6 +634,7 @@ export default function Page() {
                 {q}
               </button>
             ))}
+
             <button
               type="button"
               onClick={pickRandomDemoQuery}
@@ -659,9 +651,11 @@ export default function Page() {
               ✍️ Demo Query
             </button>
           </div>
-        {/* Aggregate stats */}
+        </div>
+
+        {/* Aggregate */}
         {aggregate && aggregate.total > 0 && (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <MetricCard label="TOTAL RUNS" value={aggregate.total} />
             <MetricCard
               label="NATIVE SUCCESS RATE"
@@ -688,30 +682,40 @@ export default function Page() {
             />
           </div>
         )}
+      </div>
 
+      {/* RIGHT */}
+      <div
+        
+        style={{
+          minHeight: 'calc(100vh - 110px)',
+          maxHeight: 'calc(100vh - 110px)',
+          overflow: 'auto',
+          paddingRight: 4,
+        }}
+      >
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
           {(['live', 'history'] as const).map(tab => (
             <button
               key={tab}
               className="tab-btn"
-              onClick={async() => {
-                  setActiveTab(tab)
+              onClick={async () => {
+                setActiveTab(tab);
                 if (tab === 'history') {
-                    setLoading(true);
+                  setLoading(true);
                     // Refetch history when switching to history tab to ensure data is fresh
-                    try {
-                      await fetchHistory();
-                    } catch (error) {
-                      console.error('Failed to fetch history:', error);
-                    } finally {
-                      setLoading(false);
-                    }
+                  try {
+                    await fetchHistory();
+                  } finally {
+                    setLoading(false);
                   }
                 }
-              }
+              }}
               style={{
-                padding: '10px 20px', fontSize: 13, fontWeight: 600,
+                padding: '10px 20px',
+                fontSize: 13,
+                fontWeight: 600,
                 color: activeTab === tab ? 'var(--text)' : 'var(--text-3)',
                 borderBottom: activeTab === tab ? '2px solid #4f7cff' : '2px solid transparent',
                 marginBottom: -1,
@@ -748,34 +752,22 @@ export default function Page() {
             borderRadius: 16,
             overflow: 'hidden',
           }}>
-            
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Query History</div>
-              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Persisted in SQLite · Last 20 runs</span>
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                Persisted in SQLite · Last 20 runs
+              </span>
             </div>
             <HistoryTable history={history} />
           </div>
         )}
-
-        {/* Footer */}
-        <div style={{
-          marginTop: 48, paddingTop: 24,
-          borderTop: '1px solid var(--border)',
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', flexWrap: 'wrap', gap: 12,
-        }}>
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-            Results stored in SQLite
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{
-              fontSize: 11, background: 'var(--green-dim)', color: 'var(--green)',
-              border: '1px solid rgba(34,197,94,0.15)', borderRadius: 4, padding: '3px 8px',
-            }}>LIVE</span>
-            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Kiro Demo v1.0</span>
-          </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

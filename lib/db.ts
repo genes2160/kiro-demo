@@ -1,64 +1,74 @@
-import path from 'path';
-import fs from 'fs';
+import { Pool } from 'pg';
 
-let db: any = null;
+let pool: Pool | null = null;
+let schemaReady: Promise<void> | null = null;
 
-function getDb() {
-  if (db) return db;
+function getPool() {
+  if (pool) return pool;
 
-  const dataDir = path.join(process.cwd(), 'data');
-  const dbFile = path.join(dataDir, 'queries.db');
-
-  console.log('[db] cwd:', process.cwd());
-  console.log('[db] dataDir:', dataDir);
-  console.log('[db] dbFile:', dbFile);
-
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    console.log('[db] created data dir');
+  const connectionString = process.env.DATABASE_URL;
+  console.log('[db] DATABASE_URL exists:', !!process.env.DATABASE_URL);
+  console.log('[db] DATABASE_URL preview:', process.env.DATABASE_URL?.slice(0, 30));
+  if (!connectionString) {
+    throw new Error('Missing DATABASE_URL');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Database = require('better-sqlite3');
-  db = new Database(dbFile);
+  pool = new Pool({
+    connectionString,
+    // Common for hosted Postgres providers on Vercel/Neon/Supabase/etc.
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS query_results (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      query_type TEXT NOT NULL,
-      target TEXT NOT NULL,
-      native_status TEXT,
-      native_data TEXT,
-      native_error TEXT,
-      native_duration_ms INTEGER,
-      native_items_count INTEGER DEFAULT 0,
-      brightdata_status TEXT,
-      brightdata_data TEXT,
-      brightdata_error TEXT,
-      brightdata_duration_ms INTEGER,
-      brightdata_items_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS stats (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      target TEXT NOT NULL,
-      total_queries INTEGER DEFAULT 0,
-      native_success INTEGER DEFAULT 0,
-      native_blocked INTEGER DEFAULT 0,
-      native_partial INTEGER DEFAULT 0,
-      brightdata_success INTEGER DEFAULT 0,
-      brightdata_blocked INTEGER DEFAULT 0,
-      brightdata_partial INTEGER DEFAULT 0,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  console.log('[db] schema ensured');
-  return db;
+  return pool;
 }
 
-export function saveQueryResult(result: {
+async function ensureSchema() {
+  if (schemaReady) return schemaReady;
+
+  const db = getPool();
+
+  console.log('[db] db:', db);
+  schemaReady = (async () => {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS query_results (
+        id BIGSERIAL PRIMARY KEY,
+        query_type TEXT NOT NULL,
+        target TEXT NOT NULL,
+        native_status TEXT,
+        native_data JSONB,
+        native_error TEXT,
+        native_duration_ms INTEGER,
+        native_items_count INTEGER DEFAULT 0,
+        brightdata_status TEXT,
+        brightdata_data JSONB,
+        brightdata_error TEXT,
+        brightdata_duration_ms INTEGER,
+        brightdata_items_count INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS stats (
+        id BIGSERIAL PRIMARY KEY,
+        target TEXT NOT NULL UNIQUE,
+        total_queries INTEGER DEFAULT 0,
+        native_success INTEGER DEFAULT 0,
+        native_blocked INTEGER DEFAULT 0,
+        native_partial INTEGER DEFAULT 0,
+        brightdata_success INTEGER DEFAULT 0,
+        brightdata_blocked INTEGER DEFAULT 0,
+        brightdata_partial INTEGER DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+  })();
+
+
+  console.log('[db] schema ensured');  return schemaReady;
+}
+
+export async function saveQueryResult(result: {
   query_type: string;
   target: string;
   native_status: string;
@@ -70,117 +80,151 @@ export function saveQueryResult(result: {
   brightdata_error: string | null;
   brightdata_duration_ms: number;
 }) {
-  const database = getDb();
+  await ensureSchema();
+  const db = getPool();
 
-  const stmt = database.prepare(`
-    INSERT INTO query_results 
-    (query_type, target, native_status, native_data, native_error, native_duration_ms, native_items_count,
-     brightdata_status, brightdata_data, brightdata_error, brightdata_duration_ms, brightdata_items_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const info = stmt.run(
-    result.query_type,
-    result.target,
-    result.native_status,
-    JSON.stringify(result.native_data),
-    result.native_error,
-    result.native_duration_ms,
-    result.native_data.length,
-    result.brightdata_status,
-    JSON.stringify(result.brightdata_data),
-    result.brightdata_error,
-    result.brightdata_duration_ms,
-    result.brightdata_data.length
+  await db.query(
+    `
+      INSERT INTO query_results (
+        query_type,
+        target,
+        native_status,
+        native_data,
+        native_error,
+        native_duration_ms,
+        native_items_count,
+        brightdata_status,
+        brightdata_data,
+        brightdata_error,
+        brightdata_duration_ms,
+        brightdata_items_count
+      )
+      VALUES (
+        $1, $2, $3, $4::jsonb, $5, $6, $7,
+        $8, $9::jsonb, $10, $11, $12
+      )
+    `,
+    [
+      result.query_type,
+      result.target,
+      result.native_status,
+      JSON.stringify(result.native_data ?? []),
+      result.native_error,
+      result.native_duration_ms,
+      result.native_data?.length ?? 0,
+      result.brightdata_status,
+      JSON.stringify(result.brightdata_data ?? []),
+      result.brightdata_error,
+      result.brightdata_duration_ms,
+      result.brightdata_data?.length ?? 0,
+    ]
   );
 
-  console.log('[db] insert info:', info);
+
   console.log('[db] inserted target:', result.target);
   console.log('[db] inserted native items:', result.native_data.length);
   console.log('[db] inserted brightdata items:', result.brightdata_data.length);
-
-  updateStats(database, result.target, result.native_status, result.brightdata_status);
-  console.log('[db] stats updated');
+  
+  await updateStats(result.target, result.native_status, result.brightdata_status);
 }
 
-function updateStats(database: any, target: string, nativeStatus: string, brightdataStatus: string) {
-  const existing = database.prepare('SELECT * FROM stats WHERE target = ?').get(target);
+async function updateStats(target: string, nativeStatus: string, brightdataStatus: string) {
+  await ensureSchema();
+  const db = getPool();
 
-  if (!existing) {
-    database.prepare(`
-      INSERT INTO stats (target, total_queries, native_success, native_blocked, native_partial,
-        brightdata_success, brightdata_blocked, brightdata_partial)
-      VALUES (?, 1, ?, ?, ?, ?, ?, ?)
-    `).run(
+  await db.query(
+    `
+      INSERT INTO stats (
+        target,
+        total_queries,
+        native_success,
+        native_blocked,
+        native_partial,
+        brightdata_success,
+        brightdata_blocked,
+        brightdata_partial,
+        updated_at
+      )
+      VALUES (
+        $1,
+        1,
+        $2, $3, $4,
+        $5, $6, $7,
+        NOW()
+      )
+      ON CONFLICT (target)
+      DO UPDATE SET
+        total_queries = stats.total_queries + 1,
+        native_success = stats.native_success + EXCLUDED.native_success,
+        native_blocked = stats.native_blocked + EXCLUDED.native_blocked,
+        native_partial = stats.native_partial + EXCLUDED.native_partial,
+        brightdata_success = stats.brightdata_success + EXCLUDED.brightdata_success,
+        brightdata_blocked = stats.brightdata_blocked + EXCLUDED.brightdata_blocked,
+        brightdata_partial = stats.brightdata_partial + EXCLUDED.brightdata_partial,
+        updated_at = NOW()
+    `,
+    [
       target,
       nativeStatus === 'success' ? 1 : 0,
       nativeStatus === 'blocked' ? 1 : 0,
       nativeStatus === 'partial' ? 1 : 0,
       brightdataStatus === 'success' ? 1 : 0,
       brightdataStatus === 'blocked' ? 1 : 0,
-      brightdataStatus === 'partial' ? 1 : 0
-    );
-  } else {
-    database.prepare(`
-      UPDATE stats SET
-        total_queries = total_queries + 1,
-        native_success = native_success + ?,
-        native_blocked = native_blocked + ?,
-        native_partial = native_partial + ?,
-        brightdata_success = brightdata_success + ?,
-        brightdata_blocked = brightdata_blocked + ?,
-        brightdata_partial = brightdata_partial + ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE target = ?
-    `).run(
-      nativeStatus === 'success' ? 1 : 0,
-      nativeStatus === 'blocked' ? 1 : 0,
-      nativeStatus === 'partial' ? 1 : 0,
-      brightdataStatus === 'success' ? 1 : 0,
-      brightdataStatus === 'blocked' ? 1 : 0,
       brightdataStatus === 'partial' ? 1 : 0,
-      target
-    );
-  }
+    ]
+  );
 }
 
-export function getRecentQueries(limit = 10) {
-  const database = getDb();
-  const rows = database.prepare(`
-    SELECT * FROM query_results ORDER BY created_at DESC LIMIT ?
-  `).all(limit);
+export async function getRecentQueries(limit = 10) {
+  await ensureSchema();
+  const db = getPool();
+
+  const { rows } = await db.query(
+    `
+      SELECT *
+      FROM query_results
+      ORDER BY created_at DESC
+      LIMIT $1
+    `,
+    [limit]
+  );
 
   return rows.map((row: any) => ({
     ...row,
-    native_data: safeJsonParse(row.native_data, []),
-    brightdata_data: safeJsonParse(row.brightdata_data, []),
+    native_data: row.native_data ?? [],
+    brightdata_data: row.brightdata_data ?? [],
   }));
 }
 
-export function getStats() {
-  const database = getDb();
-  return database.prepare('SELECT * FROM stats ORDER BY total_queries DESC').all();
+export async function getStats() {
+  await ensureSchema();
+  const db = getPool();
+
+  const { rows } = await db.query(`
+    SELECT *
+    FROM stats
+    ORDER BY total_queries DESC
+  `);
+
+  return rows;
 }
 
-export function getAggregate() {
-  const database = getDb();
-  const totals = database.prepare(`
-    SELECT 
-      COUNT(*) as total,
-      COALESCE(SUM(native_items_count), 0) as native_total_items,
-      COALESCE(SUM(brightdata_items_count), 0) as brightdata_total_items,
-      COALESCE(SUM(CASE WHEN native_status = 'success' THEN 1 ELSE 0 END), 0) as native_success,
-      COALESCE(SUM(CASE WHEN native_status = 'blocked' THEN 1 ELSE 0 END), 0) as native_blocked,
-      COALESCE(SUM(CASE WHEN brightdata_status = 'success' THEN 1 ELSE 0 END), 0) as brightdata_success,
-      COALESCE(AVG(native_duration_ms), 0) as avg_native_ms,
-      COALESCE(AVG(brightdata_duration_ms), 0) as avg_brightdata_ms
+export async function getAggregate() {
+  await ensureSchema();
+  const db = getPool();
+
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*)::int as total,
+      COALESCE(SUM(native_items_count), 0)::int as native_total_items,
+      COALESCE(SUM(brightdata_items_count), 0)::int as brightdata_total_items,
+      COALESCE(SUM(CASE WHEN native_status = 'success' THEN 1 ELSE 0 END), 0)::int as native_success,
+      COALESCE(SUM(CASE WHEN native_status = 'blocked' THEN 1 ELSE 0 END), 0)::int as native_blocked,
+      COALESCE(SUM(CASE WHEN brightdata_status = 'success' THEN 1 ELSE 0 END), 0)::int as brightdata_success,
+      COALESCE(AVG(native_duration_ms), 0)::float as avg_native_ms,
+      COALESCE(AVG(brightdata_duration_ms), 0)::float as avg_brightdata_ms
     FROM query_results
-  `).get();
+  `);
 
-  console.log('[db] aggregate:', totals);
-  return totals;
-}
-
-function safeJsonParse(str: string, fallback: any) {
-  try { return JSON.parse(str); } catch { return fallback; }
+  return rows[0];
 }
