@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { ExportButtons } from '../../utils/exports';
+import { HistoryRow } from '../../utils/interfaces';
 
 type Status = 'success' | 'blocked' | 'partial' | 'error' | 'idle';
 
@@ -19,17 +21,7 @@ interface QueryResult {
   brightdata: FetchResult;
 }
 
-interface HistoryRow {
-  id: number;
-  target: string;
-  native_status: string;
-  native_items_count: number;
-  native_duration_ms: number;
-  brightdata_status: string;
-  brightdata_items_count: number;
-  brightdata_duration_ms: number;
-  created_at: string;
-}
+
 
 interface Aggregate {
   total: number;
@@ -296,6 +288,20 @@ function HistoryTable({ history }: { history: HistoryRow[] }) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
+      {/* ── Export bar ── */}
+      <div style={{
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'var(--mono)' }}>
+          {history.length} run{history.length !== 1 ? 's' : ''}
+        </span>
+        <ExportButtons history={history} />
+      </div>
+
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ background: 'var(--bg-3)' }}>

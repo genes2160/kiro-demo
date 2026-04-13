@@ -22,7 +22,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://kiro:kiro@db:5432/kirodb
+      DATABASE_URL: postgres://kiro:kiro@db:5432/kirodb?sslmode=disable
     depends_on:
       db:
         condition: service_healthy
