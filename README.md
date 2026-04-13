@@ -1,53 +1,99 @@
 # Kiro Demo — Native HTTP vs Bright Data
 
-Live side-by-side comparison demonstrating native HTTP failure vs Bright Data Web Unlocker success.
+## What is this?
+
+This project demonstrates a fundamental limitation of standard web scraping: **native HTTP requests get blocked**. Most websites protect their data with bot detection, rate limiting, CAPTCHAs, and IP-based blocking. A plain `fetch()` call will be rejected, return garbage, or silently fail.
+
+**Bright Data's Web Unlocker** solves this. It routes requests through a managed proxy network with automatic fingerprint rotation, CAPTCHA solving, and request retries — making blocked pages reliably accessible.
+
+This app runs both approaches **side by side in real time**, so you can see exactly where native HTTP falls short and where Bright Data succeeds.
+
+---
+
+## Objective
+
+Show developers, PMs, and clients the concrete difference between:
+
+- A raw HTTP request (fast, cheap, unreliable — gets blocked)
+- A Bright Data Web Unlocker request (slightly slower ONLY for scraping - efficient nonetheless and, consistently succeeds)
+
+Results from both are written to an external Postgres database so you can audit, compare, and analyse query outcomes over time.
+
+---
+
+## Prerequisites
+
+You need two things before running this app:
+
+| Requirement | What it's for | Where to get it |
+|---|---|---|
+| `DATABASE_URL` (required) | Stores all query results persistently | Your external Postgres instance |
+| `BRIGHTDATA_API_TOKEN` (optional) | Enables real Web Unlocker requests | [brightdata.com](https://brightdata.com) |
+
+> **No Bright Data token?** The app runs in demo mode — Bright Data responses are simulated so you can explore the full UI and flow. Native HTTP still fires live and will likely get blocked.
+
+---
+
+## How it works
+
+```
+User submits a query
+        │
+        ▼
+  Next.js frontend
+        │
+        ▼
+   /api/query endpoint
+        │
+   Promise.all()
+   ┌────┴────┐
+   │         │
+   ▼         ▼
+Native    Bright Data
+ fetch    Web Unlocker
+(blocked  (succeeds,
+ / fails)  returns data)
+   │         │
+   └────┬────┘
+        │
+        ▼
+  Both results saved
+  to Postgres DB
+        │
+        ▼
+  UI renders side-by-side
+  comparison with status,
+  response time, and data
+```
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Copy env file
+# 1. Configure environment
 cp .env.example .env
-# Edit .env with your Bright Data credentials
+# Edit .env — add DATABASE_URL and optionally BRIGHTDATA_API_TOKEN
 
-# 2. Build & run
+# 2. Build and run
 docker build -t kiro-demo .
 docker run -p 3000:3000 --env-file .env kiro-demo
-
-
-docker build --no-cache -t kiro-demo .
-docker run -p 3000:3000 --env-file .env --name kiro-demo-app kiro-demo
-docker run -p 3000:3000 --env-file .env -v /{path}/data:/app/data --name kiro-demo-app kiro-demo
-docker stop kiro-demo-app
-docker rm kiro-demo-app
 
 # 3. Open http://localhost:3000
 ```
 
-## Without Bright Data credentials
-
-The app runs in **demo mode** — Bright Data returns simulated realistic data so you can see the full UI and flow. Native HTTP still runs live and will likely be blocked.
+---
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |---|---|---|
-| `BRIGHTDATA_API_TOKEN` | Your Bright Data API token | (demo mode if absent) |
-| `BRIGHTDATA_ZONE` | Your Web Unlocker zone name | `web_unlocker1` |
+| `DATABASE_URL` | Postgres connection string | required |
+| `BRIGHTDATA_API_TOKEN` | Bright Data API token | demo mode if absent |
+| `BRIGHTDATA_ZONE` | Web Unlocker zone name | `web_unlocker1` |
 | `PORT` | Server port | `3000` |
 
-## Architecture
-
-```
-User → Next.js UI → /api/query → Promise.all([native, brightdata]) → SQLite → UI
-```
-
-## Data Storage
-
-All query results are persisted in SQLite at `/app/data/queries.db`. Mount a volume to persist across container restarts:
-
-```bash
-docker run -p 3000:3000 --env-file .env -v $(pwd)/data:/app/data kiro-demo
-```
+---
 
 ## Dev Mode
 
@@ -55,8 +101,3 @@ docker run -p 3000:3000 --env-file .env -v $(pwd)/data:/app/data kiro-demo
 npm install
 npm run dev
 ```
-
-# SEARCH QUERIES
-wireless headphones
-OpenAI GPT-5 opinions
-software engineers
