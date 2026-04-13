@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kirodb
+      POSTGRES_USER: kiro
+      POSTGRES_PASSWORD: kiro
+    volumes:
+      - kiro_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kiro -d kirodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://kiro:kiro@db:5432/kirodb
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  kiro_pgdata:

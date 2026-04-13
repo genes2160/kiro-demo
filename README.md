@@ -15,7 +15,7 @@ This app runs both approaches **side by side in real time**, so you can see exac
 Show developers, PMs, and clients the concrete difference between:
 
 - A raw HTTP request (fast, cheap, unreliable — gets blocked)
-- A Bright Data Web Unlocker request (slightly slower ONLY for scraping - efficient nonetheless and, consistently succeeds)
+- A Bright Data Web Unlocker request (slightly slower, consistently succeeds)
 
 Results from both are written to an external Postgres database so you can audit, compare, and analyse query outcomes over time.
 
@@ -70,6 +70,44 @@ Native    Bright Data
 
 ## Quick Start
 
+### Option A — Docker Compose (Postgres included)
+
+No external database needed. Postgres spins up automatically as a local container.
+
+```bash
+# 1. Configure environment
+cp .env.example .env
+# Edit .env — add BRIGHTDATA_API_TOKEN (optional)
+# DATABASE_URL is not needed — compose injects it automatically
+
+# 2. Start everything
+docker compose up -d
+
+# 3. Stream logs
+docker compose logs -f app
+
+# 4. Open http://localhost:3000
+```
+
+**Shutdown & cleanup:**
+
+```bash
+# Stop containers (data is preserved)
+docker compose down
+
+# Stop containers and wipe the database
+docker compose down -v
+
+# Remove the built image entirely
+docker rmi kiro-demo
+```
+
+---
+
+### Option B — Docker Run (bring your own Postgres)
+
+Use this if you have an external Postgres instance.
+
 ```bash
 # 1. Configure environment
 cp .env.example .env
@@ -77,9 +115,22 @@ cp .env.example .env
 
 # 2. Build and run
 docker build -t kiro-demo .
-docker run -p 3000:3000 --env-file .env kiro-demo
+docker run -p 3000:3000 --env-file .env --name kiro-demo-app kiro-demo
 
 # 3. Open http://localhost:3000
+```
+
+**Shutdown & cleanup:**
+
+```bash
+# Stop the container
+docker stop kiro-demo-app
+
+# Remove the container
+docker rm kiro-demo-app
+
+# Remove the built image entirely
+docker rmi kiro-demo
 ```
 
 ---
